@@ -220,7 +220,7 @@ jobs:
 
           generate_ignores(".")
 
-          with open(os.path.join(${{ matrix.path }}, ".cm_ignore"), "w") as f:
+          with open(os.path.join(".cmignore"), "w") as f:
               f.write(existing_content)
               f.write("\n# --- Dynamically Generated for Chunk ---\n")
               f.write("\n".join(ignore_rules) + "\n")
