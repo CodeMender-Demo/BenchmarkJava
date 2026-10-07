@@ -163,7 +163,7 @@ jobs:
         run: |
           import json
 
-          files = json.loads("""${{ matrix.files }}""")
+          files = json.loads("""${{ toJson(matrix.files) }}""")
 
           for file in files:
             print(file)
