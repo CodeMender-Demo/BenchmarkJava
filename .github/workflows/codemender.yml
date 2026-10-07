@@ -158,105 +158,109 @@ jobs:
       #       echo "scan_dir=${{ matrix.path }}" >> "$GITHUB_OUTPUT"
       #     fi   
       
-      - name: Generate Dynamic .cmignore for Chunk
-        shell: python
+      - name: Print allowed files
         run: |
-          import os, json, subprocess
-          from collections import defaultdict
-          from pathlib import PurePosixPath
+          echo "${{ matrix.files }}"
+      
+      # - name: Generate Dynamic .cmignore for Chunk
+      #   shell: python
+      #   run: |
+      #     import os, json, subprocess
+      #     from collections import defaultdict
+      #     from pathlib import PurePosixPath
 
-          chunk_path = os.environ.get("CHUNK_PATH", ".")
-          raw_files = os.environ.get("CHUNK_FILES", "null")
+      #     chunk_path = os.environ.get("CHUNK_PATH", ".")
+      #     raw_files = os.environ.get("CHUNK_FILES", "null")
 
-          print(f"--- Diagnosing Chunk ---")
-          print(f"Received CHUNK_PATH: {chunk_path}")
+      #     print(f"--- Diagnosing Chunk ---")
+      #     print(f"Received CHUNK_PATH: {chunk_path}")
 
-          # 1. Safely load files from CHUNK_FILES
-          allowed_files = set()
-          try:
-              parsed = json.loads(raw_files)
-              if isinstance(parsed, list):
-                  allowed_files = {os.path.normpath(f) for f in parsed if f}
-          except Exception as e:
-              print(f"Warning parsing CHUNK_FILES: {e}")
+      #     # 1. Safely load files from CHUNK_FILES
+      #     allowed_files = set()
+      #     try:
+      #         parsed = json.loads(raw_files)
+      #         if isinstance(parsed, list):
+      #             allowed_files = {os.path.normpath(f) for f in parsed if f}
+      #     except Exception as e:
+      #         print(f"Warning parsing CHUNK_FILES: {e}")
 
-          # 2. Get all git tracked files
-          res = subprocess.run(["git", "ls-files"], stdout=subprocess.PIPE, text=True, check=True)
-          all_files = [os.path.normpath(f.strip()) for f in res.stdout.splitlines() if f.strip()]
-          print(f"Total repository tracked files: {len(all_files)}")
+      #     # 2. Get all git tracked files
+      #     res = subprocess.run(["git", "ls-files"], stdout=subprocess.PIPE, text=True, check=True)
+      #     all_files = [os.path.normpath(f.strip()) for f in res.stdout.splitlines() if f.strip()]
+      #     print(f"Total repository tracked files: {len(all_files)}")
 
-          # 3. Fallback: If matrix.files was not provided, infer from CHUNK_PATH
-          if not allowed_files and chunk_path:
-              target_dir = os.path.normpath(chunk_path)
-              print(f"No explicit file list found; inferring files under directory: {target_dir}")
-              allowed_files = {
-                  f for f in all_files 
-                  if target_dir == "." or f == target_dir or f.startswith(target_dir + "/") or f.startswith(target_dir + os.sep)
-              }
+      #     # 3. Fallback: If matrix.files was not provided, infer from CHUNK_PATH
+      #     if not allowed_files and chunk_path:
+      #         target_dir = os.path.normpath(chunk_path)
+      #         print(f"No explicit file list found; inferring files under directory: {target_dir}")
+      #         allowed_files = {
+      #             f for f in all_files 
+      #             if target_dir == "." or f == target_dir or f.startswith(target_dir + "/") or f.startswith(target_dir + os.sep)
+      #         }
 
-          print(f"Allowed files in this chunk: {len(allowed_files)}")
+      #     print(f"Allowed files in this chunk: {len(allowed_files)}")
 
-          if not allowed_files:
-              print("ERROR: No allowed files identified for this chunk! Check your matrix configuration.")
-              exit(1)
+      #     if not allowed_files:
+      #         print("ERROR: No allowed files identified for this chunk! Check your matrix configuration.")
+      #         exit(1)
 
-          # 4. Map directories and counts
-          allowed_counts = defaultdict(int)
-          total_counts = defaultdict(int)
-          subdirs = defaultdict(set)
-          direct_files = defaultdict(list)
+      #     # 4. Map directories and counts
+      #     allowed_counts = defaultdict(int)
+      #     total_counts = defaultdict(int)
+      #     subdirs = defaultdict(set)
+      #     direct_files = defaultdict(list)
 
-          for f in all_files:
-              parts = PurePosixPath(f).parts
-              parent = str(PurePosixPath(*parts[:-1])) if len(parts) > 1 else "."
-              direct_files[parent].append(f)
+      #     for f in all_files:
+      #         parts = PurePosixPath(f).parts
+      #         parent = str(PurePosixPath(*parts[:-1])) if len(parts) > 1 else "."
+      #         direct_files[parent].append(f)
 
-              is_allowed = f in allowed_files
-              for i in range(len(parts)):
-                  ancestor = str(PurePosixPath(*parts[:i])) if i > 0 else "."
-                  total_counts[ancestor] += 1
-                  if is_allowed:
-                      allowed_counts[ancestor] += 1
-                  if i > 0:
-                      p = str(PurePosixPath(*parts[: i - 1])) if i > 1 else "."
-                      subdirs[p].add(ancestor)
+      #         is_allowed = f in allowed_files
+      #         for i in range(len(parts)):
+      #             ancestor = str(PurePosixPath(*parts[:i])) if i > 0 else "."
+      #             total_counts[ancestor] += 1
+      #             if is_allowed:
+      #                 allowed_counts[ancestor] += 1
+      #             if i > 0:
+      #                 p = str(PurePosixPath(*parts[: i - 1])) if i > 1 else "."
+      #                 subdirs[p].add(ancestor)
 
-          # 5. Build hierarchical ignore rules
-          ignore_rules = []
+      #     # 5. Build hierarchical ignore rules
+      #     ignore_rules = []
 
-          def generate_ignores(curr_dir: str):
-              # If directory has 0 allowed files, ignore the entire folder
-              if allowed_counts[curr_dir] == 0:
-                  if curr_dir != ".":
-                      ignore_rules.append(f"{curr_dir}/")
-                  else:
-                      ignore_rules.append("/*")
-                  return
+      #     def generate_ignores(curr_dir: str):
+      #         # If directory has 0 allowed files, ignore the entire folder
+      #         if allowed_counts[curr_dir] == 0:
+      #             if curr_dir != ".":
+      #                 ignore_rules.append(f"{curr_dir}/")
+      #             else:
+      #                 ignore_rules.append("/*")
+      #             return
 
-              # If all files in this directory are allowed, keep it
-              if allowed_counts[curr_dir] == total_counts[curr_dir]:
-                  return
+      #         # If all files in this directory are allowed, keep it
+      #         if allowed_counts[curr_dir] == total_counts[curr_dir]:
+      #             return
 
-              # Otherwise, recurse into subdirectories
-              for child in sorted(subdirs.get(curr_dir, [])):
-                  generate_ignores(child)
+      #         # Otherwise, recurse into subdirectories
+      #         for child in sorted(subdirs.get(curr_dir, [])):
+      #             generate_ignores(child)
 
-              # And ignore any unassigned loose files
-              for f in direct_files.get(curr_dir, []):
-                  if f not in allowed_files:
-                      ignore_rules.append(f)
+      #         # And ignore any unassigned loose files
+      #         for f in direct_files.get(curr_dir, []):
+      #             if f not in allowed_files:
+      #                 ignore_rules.append(f)
 
-          generate_ignores(".")
+      #     generate_ignores(".")
 
-          print(f"Generated {len(ignore_rules)} ignore rule(s).")
+      #     print(f"Generated {len(ignore_rules)} ignore rule(s).")
 
-          # 6. Write to BOTH .cm_ignore and .cmignore so the scanner is guaranteed to find it
-          content = "\n# --- Dynamically Generated for Chunk ---\n" + "\n".join(ignore_rules) + "\n"
+      #     # 6. Write to BOTH .cm_ignore and .cmignore so the scanner is guaranteed to find it
+      #     content = "\n# --- Dynamically Generated for Chunk ---\n" + "\n".join(ignore_rules) + "\n"
           
-          for target_file in [".cm_ignore", ".cmignore"]:
-              with open(target_file, "a") as f:
-                  f.write(content)
-              print(f"Wrote rules to {target_file}")
+      #     for target_file in [".cm_ignore", ".cmignore"]:
+      #         with open(target_file, "a") as f:
+      #             f.write(content)
+      #         print(f"Wrote rules to {target_file}")
 
       - name: Inspect .cm_ignore (Debug)
         run: |
