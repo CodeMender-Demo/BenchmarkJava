@@ -159,9 +159,14 @@ jobs:
       #     fi   
       
       - name: Print allowed files
+        shell: python
         run: |
-          FILES=${{ matrix.files }}
-          echo "${$FILES[@]}"
+          import json
+
+          files = json.loads("""${{ matrix.files }}""")
+
+          for file in files:
+            print(file)
       
       # - name: Generate Dynamic .cmignore for Chunk
       #   shell: python
