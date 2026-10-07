@@ -160,7 +160,8 @@ jobs:
       
       - name: Print allowed files
         run: |
-          echo "${{ matrix.files }}"
+          FILES=${{ matrix.files }}
+          echo "${$FILES[@]}"
       
       # - name: Generate Dynamic .cmignore for Chunk
       #   shell: python
